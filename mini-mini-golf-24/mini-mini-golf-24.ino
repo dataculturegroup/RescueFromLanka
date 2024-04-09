@@ -1,51 +1,65 @@
 #include <Adafruit_NeoPixel.h>
 
-#define PALACE_LIGHTS_PIN   8
-#define NUM_PALACE_LIGHTS   33
+#define SHORTCUT_SLIDE_PIN  4
+#define SLIDE_LIGHTS_PIN    8
+#define DEBUG_LED_PIN       13
 
-Adafruit_NeoPixel PalaceLights(NUM_PALACE_LIGHTS, PALACE_LIGHTS_PIN, NEO_GRB + NEO_KHZ800);
+#define NUM_SLIDE_LEDS      17
+Adafruit_NeoPixel SlideLights(NUM_SLIDE_LEDS, SLIDE_LIGHTS_PIN, NEO_GRB + NEO_KHZ800);
+
 bool ballInHole = 0;
-bool ballInShortcut = 0;
+bool ballInSlide = 0;
 
 void setup() {
-  PalaceLights.begin();
+  pinMode(DEBUG_LED_PIN, OUTPUT);
+  digitalWrite(DEBUG_LED_PIN, LOW);
+  pinMode(SHORTCUT_SLIDE_PIN, INPUT_PULLUP);
+  SlideLights.begin();
   startObstacles();
+  Serial.begin(9600);
+  Serial.println("<Lanka Rescue Ready>");
 }
 
 void loop() {
   ballInHole = 0;
-  ballInShortcut = 0;
-  if (ballInShortcut) {
-    handleShortcut();
+  ballInSlide = !digitalRead(SHORTCUT_SLIDE_PIN);
+  if (ballInSlide) {
+    animateSlide();
   }
-  if (ballInHole) {
-    celebrateVictory();
-  }
+  //if (ballInHole) {
+  //}
 }
 
 void handleShortcut() {
   // TO DO
+  digitalWrite(DEBUG_LED_PIN, HIGH);
+  delay(300);
+  digitalWrite(DEBUG_LED_PIN, LOW);
 }
 
-#define DELAY_INTERVAL      100
-void celebrateVictory() {
-  PalaceLights.clear();
-  PalaceLights.show();
-  for (int pixel = 0; pixel < NUM_PALACE_LIGHTS; pixel++) {
-    PalaceLights.setPixelColor(pixel, PalaceLights.Color(0, 255, 0));
-    PalaceLights.show();
-    delay(DELAY_INTERVAL);
+#define SLIDE_LIGHT_ANIMATION_DELAY      60
+void animateSlide() {
+  SlideLights.clear();
+  SlideLights.show();
+  for (int pixel = 0; pixel < NUM_SLIDE_LEDS; pixel++) {
+    if ((pixel-3) >= 0) {
+      SlideLights.setPixelColor(pixel-3, SlideLights.Color(0, 0, 0));
+    }
+    if ((pixel-2) >= 0) {
+      SlideLights.setPixelColor(pixel-2, SlideLights.Color(0, 0, 30));
+    }
+    if ((pixel-1) >= 0) {
+      SlideLights.setPixelColor(pixel-1, SlideLights.Color(0, 0, 60));
+    }
+    SlideLights.setPixelColor(pixel, SlideLights.Color(0, 0, 255));
+    SlideLights.show();
+    delay(SLIDE_LIGHT_ANIMATION_DELAY);
   }
-  for (int pixel = NUM_PALACE_LIGHTS-1; pixel >= 0; pixel--) {
-    PalaceLights.setPixelColor(pixel, PalaceLights.Color(0, 0, 0));
-    PalaceLights.show();
-    delay(DELAY_INTERVAL);
-  }
-  PalaceLights.clear();
-  PalaceLights.show();
+  SlideLights.clear();
+  SlideLights.show();
 }
 
 void startObstacles() {
-  PalaceLights.clear();
-  PalaceLights.show();
+  SlideLights.clear();
+  SlideLights.show();
 }
