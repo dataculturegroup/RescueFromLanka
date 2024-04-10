@@ -3,9 +3,11 @@
 #include "SCMD_config.h" //Contains #defines for common SCMD register names and values
 #include "Wire.h"
 
+#define FINAL_HOLE_PIN      5
+#define PALACE_LIGHTS_PIN   9
+#define DEBUG_LED_PIN       13
 #define SHORTCUT_SLIDE_PIN  4
 #define SLIDE_LIGHTS_PIN    8
-#define DEBUG_LED_PIN       13
 
 SCMD obstacleMotors;
 unsigned long timeToChangeLankaRocks = 0;
@@ -16,8 +18,12 @@ unsigned long timeToChangeLankaRocks = 0;
 #define LANKA_ROCKS_SLEEP_2   3
 int lankaRocksState = LANKA_ROCKS_SLEEP_2;
 
+#define NUM_PALACE_LEDS     44
+Adafruit_NeoPixel PalaceLights(NUM_PALACE_LEDS, PALACE_LIGHTS_PIN, NEO_GRB + NEO_KHZ800);
+
 #define NUM_SLIDE_LEDS      17
 Adafruit_NeoPixel SlideLights(NUM_SLIDE_LEDS, SLIDE_LIGHTS_PIN, NEO_GRB + NEO_KHZ800);
+
 
 bool ballInHole = 0;
 bool ballInSlide = 0;
@@ -29,9 +35,16 @@ void setup() {
   Serial.begin(9600);
   // slide setup
   pinMode(SHORTCUT_SLIDE_PIN, INPUT_PULLUP);
+  pinMode(SLIDE_LIGHTS_PIN, OUTPUT);
   SlideLights.begin();
   SlideLights.clear();
   SlideLights.show();
+  // lanka setup
+  pinMode(FINAL_HOLE_PIN, INPUT_PULLUP);
+  pinMode(PALACE_LIGHTS_PIN, OUTPUT);
+  PalaceLights.begin();
+  PalaceLights.clear();
+  PalaceLights.show();
   // obstacle motors on Lanka island
   obstacleMotors.settings.I2CAddress = 0x5D;
   obstacleMotors.settings.chipSelectPin = 10;
@@ -47,7 +60,7 @@ void setup() {
 }
 
 void loop() {
-  ballInHole = 0;
+  ballInHole = !digitalRead(FINAL_HOLE_PIN);
   ballInSlide = !digitalRead(SHORTCUT_SLIDE_PIN);
   if (millis() >= timeToChangeLankaRocks) {
     lankaRockStateMachine();
@@ -60,8 +73,28 @@ void loop() {
   }
 }
 
+#define PALACE_LIGHT_ANIMATION_DELAY      15
 void celebrateVictory() {
-  // to do 
+  digitalWrite(DEBUG_LED_PIN, HIGH);
+  PalaceLights.clear();
+  PalaceLights.show();
+  for (int pixel = 0; pixel < NUM_PALACE_LEDS; pixel++) {
+    if ((pixel-3) >= 0) {
+      PalaceLights.setPixelColor(pixel-3, PalaceLights.Color(0, 0, 0));
+    }
+    if ((pixel-2) >= 0) {
+      PalaceLights.setPixelColor(pixel-2, PalaceLights.Color(30, 0, 0));
+    }
+    if ((pixel-1) >= 0) {
+      PalaceLights.setPixelColor(pixel-1, PalaceLights.Color(60, 0, 0));
+    }
+    PalaceLights.setPixelColor(pixel, PalaceLights.Color(255, 0, 0));
+    PalaceLights.show();
+    delay(PALACE_LIGHT_ANIMATION_DELAY);
+  }
+  PalaceLights.clear();
+  PalaceLights.show();
+  digitalWrite(DEBUG_LED_PIN, LOW);
 }
 
 void lankaRockStateMachine() {
