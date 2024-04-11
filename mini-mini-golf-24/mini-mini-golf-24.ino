@@ -2,6 +2,7 @@
 #include "SCMD.h"
 #include "SCMD_config.h" //Contains #defines for common SCMD register names and values
 #include "Wire.h"
+#include <SoftwareSerial.h>
 
 #define FINAL_HOLE_PIN      5
 #define PALACE_LIGHTS_PIN   9
@@ -17,6 +18,18 @@ unsigned long timeToChangeLankaRocks = 0;
 #define LANKA_ROCKS_CCW       2
 #define LANKA_ROCKS_SLEEP_2   3
 int lankaRocksState = LANKA_ROCKS_SLEEP_2;
+
+
+#define MP3_RX 10  //should connect to TX of the Serial MP3 Player module
+#define MP3_TX 11  //connect to RX of the module
+SoftwareSerial mp3(MP3_RX, MP3_TX);
+static int8_t Send_buf[8] = {0}; // Buffer for Send commands.  // BETTER LOCALLY
+static uint8_t ansbuf[10] = {0}; // Buffer for the answers.    // BETTER LOCALLY
+String mp3Answer;           // Answer from the MP3.
+String sbyte2hex(uint8_t b);
+#define CMD_PLAY_W_VOL    0X22
+#define CMD_SET_VOLUME    0X06
+#define CMD_PLAY_W_INDEX  0X03
 
 #define NUM_PALACE_LEDS     44
 uint32_t palaceFireColors[NUM_PALACE_LEDS];
@@ -41,6 +54,10 @@ void setup() {
   SlideLights.begin();
   SlideLights.clear();
   SlideLights.show();
+  // sound setup
+  Serial.begin(9600);
+  mp3.begin(9600);
+  mp3_sendCommand(CMD_SET_VOLUME, 0, 30);
   // lanka setup
   pinMode(FINAL_HOLE_PIN, INPUT_PULLUP);
   pinMode(PALACE_LIGHTS_PIN, OUTPUT);
@@ -98,6 +115,8 @@ void startCelebrating() {
   }
   // track when to stop
   timeToStopCelebrating = millis() + CELEBRATION_DURATION_MS;
+  mp3_sendCommand(CMD_PLAY_W_INDEX, 0, 1);
+  //mp3_sendCommand(CMD_PLAY_W_VOL, 200, 1);
 }
 
 void updateCelebration() {
@@ -158,6 +177,8 @@ void lankaRockStateMachine() {
 
 #define SLIDE_LIGHT_ANIMATION_DELAY      60
 void animateSlide() {
+  mp3_sendCommand(CMD_PLAY_W_INDEX, 0, 2);
+  //mp3_sendCommand(CMD_PLAY_W_VOL, 200, 2);
   SlideLights.clear();
   SlideLights.show();
   for (int pixel = 0; pixel < NUM_SLIDE_LEDS; pixel++) {
@@ -176,4 +197,38 @@ void animateSlide() {
   }
   SlideLights.clear();
   SlideLights.show();
+}
+
+void mp3_sendCommand(byte command){
+  mp3_sendCommand(command, 0, 0);
+}
+
+void mp3_sendCommand(byte command, byte dat1, byte dat2){
+  delay(20);
+  Send_buf[0] = 0x7E;    //
+  Send_buf[1] = 0xFF;    //
+  Send_buf[2] = 0x06;    // Len
+  Send_buf[3] = command; //
+  Send_buf[4] = 0x01;    // 0x00 NO, 0x01 feedback
+  Send_buf[5] = dat1;    // datah
+  Send_buf[6] = dat2;    // datal
+  Send_buf[7] = 0xEF;    //
+  Serial.print("Sending: ");
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    mp3.write(Send_buf[i]) ;
+    Serial.print(mp3_sbyte2hex(Send_buf[i]));
+  }
+  Serial.println();
+}
+
+String mp3_sbyte2hex(uint8_t b) {
+  String shex;
+
+  shex = "0X";
+
+  if (b < 16) shex += "0";
+  shex += String(b, HEX);
+  shex += " ";
+  return shex;
 }
