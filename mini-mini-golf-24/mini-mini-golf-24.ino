@@ -19,11 +19,13 @@ unsigned long timeToChangeLankaRocks = 0;
 int lankaRocksState = LANKA_ROCKS_SLEEP_2;
 
 #define NUM_PALACE_LEDS     44
-Adafruit_NeoPixel PalaceLights(NUM_PALACE_LEDS, PALACE_LIGHTS_PIN, NEO_GRB + NEO_KHZ800);
+uint32_t palaceFireColors[NUM_PALACE_LEDS];
+Adafruit_NeoPixel PalaceLights(NUM_PALACE_LEDS, PALACE_LIGHTS_PIN);
+unsigned long timeToStopCelebrating = 0;
+bool celebrating = true;
 
 #define NUM_SLIDE_LEDS      17
-Adafruit_NeoPixel SlideLights(NUM_SLIDE_LEDS, SLIDE_LIGHTS_PIN, NEO_GRB + NEO_KHZ800);
-
+Adafruit_NeoPixel SlideLights(NUM_SLIDE_LEDS, SLIDE_LIGHTS_PIN);
 
 bool ballInHole = 0;
 bool ballInSlide = 0;
@@ -68,33 +70,69 @@ void loop() {
   if (ballInSlide) {
     animateSlide();
   }
-  if (ballInHole) {
-    celebrateVictory();
+  if (ballInHole && !celebrating) {
+    startCelebrating();
+  }
+  if (celebrating) {
+    updateCelebration();
   }
 }
 
-#define PALACE_LIGHT_ANIMATION_DELAY      15
-void celebrateVictory() {
-  digitalWrite(DEBUG_LED_PIN, HIGH);
-  PalaceLights.clear();
-  PalaceLights.show();
-  for (int pixel = 0; pixel < NUM_PALACE_LEDS; pixel++) {
-    if ((pixel-3) >= 0) {
-      PalaceLights.setPixelColor(pixel-3, PalaceLights.Color(0, 0, 0));
-    }
-    if ((pixel-2) >= 0) {
-      PalaceLights.setPixelColor(pixel-2, PalaceLights.Color(30, 0, 0));
-    }
-    if ((pixel-1) >= 0) {
-      PalaceLights.setPixelColor(pixel-1, PalaceLights.Color(60, 0, 0));
-    }
-    PalaceLights.setPixelColor(pixel, PalaceLights.Color(255, 0, 0));
-    PalaceLights.show();
-    delay(PALACE_LIGHT_ANIMATION_DELAY);
+uint32_t palaceFireColorOptions[6] = {
+  PalaceLights.Color(195, 10, 2),
+  PalaceLights.Color(235, 22, 7),
+  PalaceLights.Color(185, 26, 12),
+  PalaceLights.Color(135, 7, 2),
+  PalaceLights.Color(225, 2, 11),
+  PalaceLights.Color(205, 4, 2)
+};
+
+
+#define CELEBRATION_DURATION_MS  4000
+void startCelebrating() {
+  celebrating = true;
+   // randomize a little for effects
+  for (int p=0;p<NUM_PALACE_LEDS;p++) {
+    int colorIdx = random(0, 6);
+    palaceFireColors[p] = palaceFireColorOptions[colorIdx];
   }
-  PalaceLights.clear();
+  // track when to stop
+  timeToStopCelebrating = millis() + CELEBRATION_DURATION_MS;
+}
+
+void updateCelebration() {
+  if (millis() >= timeToStopCelebrating) {
+    PalaceLights.clear();
+    PalaceLights.show();
+    celebrating = false;
+    return;
+  }
+  for(int p=0; p < NUM_PALACE_LEDS; p++) {
+    uint32_t targetColor = palaceFireColors[p];
+    int currentTime = timeToStopCelebrating - millis();
+    float currentStepPct = (float) currentTime / (float) CELEBRATION_DURATION_MS;
+    float randomFade = (float) random(0,20) / (float) 20;
+    uint32_t stepColor = colorFade(targetColor, randomFade);
+    PalaceLights.setPixelColor(p, stepColor);
+  }
   PalaceLights.show();
-  digitalWrite(DEBUG_LED_PIN, LOW);
+}
+
+uint32_t colorFade(uint32_t targetColor, float fadePct) {
+    // Extract RGB components from the targetColor
+    uint8_t targetRed = (targetColor >> 16) & 0xFF;
+    uint8_t targetGreen = (targetColor >> 8) & 0xFF;
+    uint8_t targetBlue = targetColor & 0xFF;
+
+    // Calculate faded colors
+    uint8_t fadedRed = (uint8_t)(targetRed * fadePct);
+    uint8_t fadedGreen = (uint8_t)(targetGreen * fadePct);
+    uint8_t fadedBlue = (uint8_t)(targetBlue * fadePct);
+
+    // Compose the faded color
+    uint32_t fadedColor = ((uint32_t)fadedRed << 16) | ((uint32_t)fadedGreen << 8) | fadedBlue;
+
+    return fadedColor;
 }
 
 void lankaRockStateMachine() {
